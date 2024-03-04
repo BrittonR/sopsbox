@@ -29,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Error decrypting SOPS file: {}", String::from_utf8_lossy(&output.stderr));
         std::process::exit(1);
     }
+    // TODO add json option
 
     // Parse the decrypted output as YAML.
     let decrypted_yaml: Value = serde_yaml::from_slice(&output.stdout)?;
