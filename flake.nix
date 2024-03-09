@@ -34,13 +34,12 @@
           makeWrapper
         ];
 
-        buildInputs = with pkgs; [
-        ];
+        buildInputs = with pkgs; [ libiconv ];
 
         cargoArtifacts = craneLib.buildDepsOnly ({
           src = craneLib.cleanCargoSource (craneLib.path ./.);
           inherit buildInputs nativeBuildInputs;
-          pname = "sopbxo";
+          pname = "sopbox";
         });
       in with pkgs; {
         packages = rec {
@@ -49,18 +48,18 @@
 
             inherit buildInputs nativeBuildInputs cargoArtifacts;
 
-            postInstall = ''
+            # postInstall = ''
               # for _size in "16x16" "32x32" "48x48" "64x64" "128x128" "256x256"; do
               #     echo $src
               #     install -Dm644 "$src/data/icons/$_size/apps/ytdlp-gui.png" "$out/share/icons/hicolor/$_size/apps/ytdlp-gui.png"
               # done
               # install -Dm644 "$src/data/applications/ytdlp-gui.desktop" -t "$out/share/applications/"
 
-              patchelf --set-rpath ${libPath} $out/bin/sopsbox
+              # patchelf --set-rpath ${libPath} $out/bin/sopsbox
 
               # wrapProgram $out/bin/ytdlp-gui \
               #   --prefix PATH : ${lib.makeBinPath [ pkgs.gnome.zenity pkgs.libsForQt5.kdialog]}\
-            '';
+            # '';
 
             GIT_HASH = self.rev or self.dirtyRev;
           };
