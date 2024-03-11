@@ -14,14 +14,17 @@ struct Args {
     /// Path to the SOPS file to decrypt.
     #[clap(value_parser)]
     sops_file_path: String,
+
+    #[arg(short, long, default_value = "/run/secrets")]
+    secret_path: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    // Ensure /run/secrets exists
-    let base_path = PathBuf::from("/run/secrets");
+    // Ensure secret path exists
+    let base_path = PathBuf::from(args.secret_path);
     match fs::create_dir_all(&base_path).await {
         Ok(_) => {}
         Err(e) => match e.kind() {
