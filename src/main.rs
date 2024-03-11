@@ -19,6 +19,10 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
+    // Ensure /run/secrets exists
+    let base_path = PathBuf::from("/run/secrets");
+    fs::create_dir_all(&base_path).await?;
+
     // Use `sops` to decrypt the file.
     let output = Command::new("sops")
         .arg("--decrypt")
@@ -34,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse the decrypted output as YAML.
     let decrypted_yaml: Value = serde_yaml::from_slice(&output.stdout)?;
     if let Value::Mapping(contents) = decrypted_yaml {
-        process_yaml_boxed(contents, PathBuf::from("/run/secrets")).await?;
+        process_yaml_boxed(contents, base_path).await?;
     } else {
         eprintln!("Decrypted content is not a YAML object.");
         std::process::exit(1);
@@ -71,4 +75,3 @@ fn process_yaml_boxed(contents: Mapping, base_path: PathBuf) -> Pin<Box<dyn Futu
         Ok(())
     })
 }
-
