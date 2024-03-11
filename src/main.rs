@@ -1,10 +1,11 @@
 use clap::Parser;
-use serde_yaml::{Value, Mapping};
-use tokio::{fs};
-use std::process::Command;
-use std::path::PathBuf;
+use serde_yaml::{Mapping, Value};
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
+use std::process::Command;
+use tokio::fs;
+use tokio::io::ErrorKind;
 
 /// A CLI tool to decrypt a SOPS file and create directories and files for each key in /run/secrets.
 #[derive(Parser, Debug)]
@@ -21,8 +22,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Ensure /run/secrets exists
     let base_path = PathBuf::from("/run/secrets");
-    fs::create_dir_all(&base_path).await?;
-
+    match fs::create_dir_all(&base_path).await {
+        Ok(_) => {}
+        Err(e) => match e.kind() {
+            ErrorKind::PermissionDenied => {
+                eprintln!("Error when trying to create {}: {}", base_path.display(), e);
+                std::process::exit(1);
+            }
+            _ => eprintln!("{e}"),
+        },
+    }
     // Use `sops` to decrypt the file.
     let output = Command::new("sops")
         .arg("--decrypt")
@@ -30,7 +39,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .output()?;
 
     if !output.status.success() {
-        eprintln!("Error decrypting SOPS file: {}", String::from_utf8_lossy(&output.stderr));
+        eprintln!(
+            "Error decrypting SOPS file: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         std::process::exit(1);
     }
     // TODO add json option
@@ -47,7 +59,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn process_yaml_boxed(contents: Mapping, base_path: PathBuf) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>>>> {
+fn process_yaml_boxed(
+    contents: Mapping,
+    base_path: PathBuf,
+) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>>>> {
     Box::pin(async move {
         for (key, value) in contents {
             if let Value::String(key_str) = key {
@@ -57,12 +72,12 @@ fn process_yaml_boxed(contents: Mapping, base_path: PathBuf) -> Pin<Box<dyn Futu
                         // Write the value to a file named after the key.
                         fs::write(&current_path, value_str).await?;
                         println!("Secret written to: {}", current_path.display());
-                    },
+                    }
                     Value::Mapping(nested) => {
                         // If the value is a nested object, create a directory and process recursively.
                         fs::create_dir_all(&current_path).await?;
                         process_yaml_boxed(nested, current_path).await?;
-                    },
+                    }
                     _ => {
                         eprintln!("Unsupported value type for key: {}", key_str);
                     }
